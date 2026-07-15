@@ -2189,31 +2189,65 @@ function exportTransactionsToExcel() {
     generateExcel(rows);
 }
 
-function generateExcel(rows) {
+async function generateExcel(rows) {
     try {
-        if (typeof XLSX === 'undefined') {
+        if (typeof ExcelJS === 'undefined') {
             showToast("Excel exporter library is not loaded.", "error");
             return;
         }
-        const worksheet = XLSX.utils.json_to_sheet(rows);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Sales History");
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet("Sales History");
 
-        // Auto-fit column widths
-        const maxKeys = Object.keys(rows[0]);
-        const wscols = maxKeys.map(key => {
-            let maxLen = key.length;
-            rows.forEach(row => {
-                const val = row[key] ? row[key].toString() : "";
+        const headers = Object.keys(rows[0]);
+        worksheet.columns = headers.map(key => ({ header: key, key: key }));
+
+        worksheet.addRows(rows);
+
+        const headerRow = worksheet.getRow(1);
+        headerRow.font = { bold: true };
+        headerRow.eachCell(cell => {
+            cell.border = {
+                top: { style: 'thin' },
+                bottom: { style: 'medium' },
+                left: { style: 'thin' },
+                right: { style: 'thin' }
+            };
+        });
+
+        worksheet.eachRow({ includeHeader: false }, row => {
+            row.eachCell(cell => {
+                cell.border = {
+                    top: { style: 'thin' },
+                    bottom: { style: 'thin' },
+                    left: { style: 'thin' },
+                    right: { style: 'thin' }
+                };
+            });
+        });
+
+        worksheet.columns.forEach(column => {
+            let maxLen = column.header.length;
+            column.eachCell({ includeHeader: true }, cell => {
+                const val = cell.value ? cell.value.toString() : "";
                 if (val.length > maxLen) {
                     maxLen = val.length;
                 }
             });
-            return { wch: maxLen + 3 };
+            column.width = maxLen + 3;
         });
-        worksheet['!cols'] = wscols;
 
-        XLSX.writeFile(workbook, `Sales_History_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = `Sales_History_${new Date().toISOString().slice(0, 10)}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
         showToast("Excel exported successfully!", "success");
     } catch (error) {
         console.error("Excel export error:", error);
@@ -2221,8 +2255,8 @@ function generateExcel(rows) {
     }
 }
 
-// Function to export a single transaction/bill to a formatted Excel file
-function exportSingleInvoiceToExcel(uniqueId) {
+// Function to export a single transaction/bill to a formatted Excel file using ExcelJS
+async function exportSingleInvoiceToExcel(uniqueId) {
     const t = state.transactions.find(trans => (trans.uniqueId === uniqueId || trans.id === uniqueId));
     if (!t) {
         showToast("Invoice not found!", "error");
@@ -2234,92 +2268,559 @@ function exportSingleInvoiceToExcel(uniqueId) {
         day: '2-digit', month: '2-digit', year: 'numeric'
     });
 
-    const cgstRate = t.gstRateOverride / 2;
-    const sgstRate = t.gstRateOverride / 2;
-    const cgstAmount = t.subtotal * (cgstRate / 100);
-    const sgstAmount = t.subtotal * (sgstRate / 100);
-    const grandTotalRounded = Math.round(t.grandTotal);
-    const roundOff = grandTotalRounded - t.grandTotal;
-
-    const data = [
-        ["TAX INVOICE", "", "", "", "", "", "", "", ""],
-        [],
-        ["SHOP DETAILS", "", "", "", "INVOICE DETAILS", "", "", "", ""],
-        ["Shop Name:", state.shop.name, "", "", "Invoice No:", t.id, "", "", ""],
-        ["Address:", state.shop.address, "", "", "Invoice Date:", formattedDate, "", "", ""],
-        ["Phone:", state.shop.phone, "", "", "Delivery Note No:", t.deliveryNote || "", "", "", ""],
-        ["GSTIN:", state.shop.gstin || "N/A", "", "", "Order No & Date:", `${t.orderNo || ""} / ${t.orderDate || ""}`, "", "", ""],
-        ["MSME:", state.shop.msme || "N/A", "", "", "Payment Terms:", t.paymentTerms || "", "", "", ""],
-        ["Email:", state.shop.email || "N/A", "", "", "Mode of Dispatch:", t.dispatchMode || "", "", "", ""],
-        [],
-        ["BUYER DETAILS", "", "", "", "CONSIGNEE DETAILS", "", "", "", ""],
-        ["Name:", t.customerName, "", "", "Name:", t.customerName, "", "", ""],
-        ["Address:", t.customerAddress || "N/A", "", "", "Address:", t.customerAddress || "N/A", "", "", ""],
-        ["GSTIN:", t.customerGstin || "N/A", "", "", "GSTIN:", t.customerGstin || "N/A", "", "", ""],
-        [],
-        ["S.No.", "Description", "HSN Code", "GST Rate", "Qty", "Rate (₹)", "Taxable Value (₹)", "GST Amount (₹)", "Total (₹)"]
-    ];
-
-    // Add items
-    t.items.forEach((item, index) => {
-        data.push([
-            index + 1,
-            item.name,
-            item.hsn,
-            `${item.gstRate || t.gstRateOverride}%`,
-            item.qty,
-            parseFloat(item.sellRate.toFixed(2)),
-            parseFloat((item.qty * item.sellRate).toFixed(2)),
-            parseFloat(item.gstAmount.toFixed(2)),
-            parseFloat(item.total.toFixed(2))
-        ]);
-    });
-
-    // Add summary rows
-    data.push([]);
-    data.push(["", "", "", "", "", "Subtotal:", parseFloat(t.subtotal.toFixed(2)), "", ""]);
-    data.push(["", "", "", "", "", `CGST (${cgstRate}%):`, parseFloat(cgstAmount.toFixed(2)), "", ""]);
-    data.push(["", "", "", "", "", `SGST (${sgstRate}%):`, parseFloat(sgstAmount.toFixed(2)), "", ""]);
-    if (Math.abs(roundOff) > 0.001) {
-        data.push(["", "", "", "", "", "Round Off:", parseFloat(roundOff.toFixed(2)), "", ""]);
+    // Helper to get unit name dynamically
+    function getProductUnit(productName) {
+        const name = (productName || "").toLowerCase();
+        if (name.includes("paper") || name.includes("sprint plus") || name.includes("ream")) {
+            return "reams";
+        }
+        return "nos.";
     }
-    data.push(["", "", "", "", "", "Grand Total:", parseFloat(grandTotalRounded.toFixed(2)), "", ""]);
+
+    // Split customer address
+    const addressLines = (t.customerAddress || "").split("\n").join(", ").split(",").map(s => s.trim()).filter(Boolean);
+    const addr1 = addressLines[0] || "-";
+    const addr2 = addressLines[1] || "-";
+    const addr3 = addressLines.slice(2).join(", ") || "-";
 
     try {
-        if (typeof XLSX === 'undefined') {
+        if (typeof ExcelJS === 'undefined') {
             showToast("Excel exporter library is not loaded.", "error");
             return;
         }
 
-        const worksheet = XLSX.utils.aoa_to_sheet(data);
-        
-        // Setup merges to match section headers
-        worksheet["!merges"] = [
-            { s: { r: 0, c: 0 }, e: { r: 0, c: 8 } }, // Title Header
-            { s: { r: 2, c: 0 }, e: { r: 2, c: 2 } }, // Shop Details Header
-            { s: { r: 2, c: 4 }, e: { r: 2, c: 6 } }, // Invoice Details Header
-            { s: { r: 10, c: 0 }, e: { r: 10, c: 2 } }, // Buyer Details Header
-            { s: { r: 10, c: 4 }, e: { r: 10, c: 6 } }  // Consignee Details Header
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet(`Invoice ${t.id}`);
+
+        // Set column widths
+        worksheet.columns = [
+            { key: 'A', width: 7 },   // S.No.
+            { key: 'B', width: 20 },  // Description Col 1
+            { key: 'C', width: 15 },  // Description Col 2
+            { key: 'D', width: 15 },  // Description Col 3
+            { key: 'E', width: 12 },  // HSN code
+            { key: 'F', width: 12 },  // GST Rate
+            { key: 'G', width: 12 },  // Qty.
+            { key: 'H', width: 16 },  // Rate - ₹
+            { key: 'I', width: 16 }   // Amount - ₹
         ];
 
-        // Specify column widths
-        const wscols = [
-            { wch: 10 },  // S.No / Label
-            { wch: 35 },  // Description / Name
-            { wch: 12 },  // HSN Code
-            { wch: 10 },  // GST Rate
-            { wch: 8 },   // Qty
-            { wch: 15 },  // Rate / Summary Title
-            { wch: 18 },  // Taxable Value / Summary Val
-            { wch: 15 },  // GST Amount
-            { wch: 15 }   // Total
-        ];
-        worksheet['!cols'] = wscols;
+        // Helper to format cells
+        function formatCell(row, col, fontOpts = {}, alignOpts = {}, borderOpts = {}, fillOpts = {}) {
+            const cell = worksheet.getCell(row, col);
+            if (Object.keys(fontOpts).length > 0) cell.font = { name: "Calibri", size: 10, ...fontOpts };
+            if (Object.keys(alignOpts).length > 0) cell.alignment = { vertical: "middle", ...alignOpts };
+            if (Object.keys(borderOpts).length > 0) cell.border = borderOpts;
+            if (Object.keys(fillOpts).length > 0) cell.fill = fillOpts;
+        }
 
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, `Invoice ${t.id}`);
+        // Helper to border range
+        function borderRange(sRow, sCol, eRow, eCol, borderStyle) {
+            for (let r = sRow; r <= eRow; r++) {
+                for (let c = sCol; c <= eCol; c++) {
+                    worksheet.getCell(r, c).border = borderStyle;
+                }
+            }
+        }
 
-        XLSX.writeFile(workbook, `Invoice_${t.id}.xlsx`);
+        // Helper to outline range
+        function outlineRange(sRow, sCol, eRow, eCol) {
+            for (let r = sRow; r <= eRow; r++) {
+                for (let c = sCol; c <= eCol; c++) {
+                    const cell = worksheet.getCell(r, c);
+                    const border = cell.border ? { ...cell.border } : {};
+                    if (r === sRow) border.top = { style: 'thin' };
+                    if (r === eRow) border.bottom = { style: 'thin' };
+                    if (c === sCol) border.left = { style: 'thin' };
+                    if (c === eCol) border.right = { style: 'thin' };
+                    cell.border = border;
+                }
+            }
+        }
+
+        // Helper to dashed outline range
+        function dashedOutlineRange(sRow, sCol, eRow, eCol) {
+            for (let r = sRow; r <= eRow; r++) {
+                for (let c = sCol; c <= eCol; c++) {
+                    const cell = worksheet.getCell(r, c);
+                    const border = cell.border ? { ...cell.border } : {};
+                    if (r === sRow) border.top = { style: 'dashed' };
+                    if (r === eRow) border.bottom = { style: 'dashed' };
+                    if (c === sCol) border.left = { style: 'dashed' };
+                    if (c === eCol) border.right = { style: 'dashed' };
+                    cell.border = border;
+                }
+            }
+        }
+
+        // Border Presets
+        const thinBorder = {
+            top: { style: 'thin' },
+            bottom: { style: 'thin' },
+            left: { style: 'thin' },
+            right: { style: 'thin' }
+        };
+        const doubleBottomBorder = {
+            top: { style: 'thin' },
+            bottom: { style: 'double' },
+            left: { style: 'thin' },
+            right: { style: 'thin' }
+        };
+
+        // --- POPULATE SHOP DETAILS & INVOICE DETAILS (Rows 1 to 8) ---
+        // Row 1
+        worksheet.getCell('B1').value = state.shop.name;
+        formatCell('B1', { bold: true, size: 14 });
+        worksheet.mergeCells('B1:G1');
+        worksheet.getCell('H1').value = "Invoice No.";
+        formatCell('H1', { bold: true, size: 9 }, { horizontal: 'center' });
+        worksheet.getCell('I1').value = "Invoice Date";
+        formatCell('I1', { bold: true, size: 9 }, { horizontal: 'center' });
+
+        // Row 2
+        worksheet.getCell('B2').value = state.shop.address;
+        formatCell('B2', { size: 10 });
+        worksheet.mergeCells('B2:G2');
+        worksheet.getCell('H2').value = t.id;
+        formatCell('H2', { size: 10 }, { horizontal: 'center' });
+        worksheet.getCell('I2').value = formattedDate;
+        formatCell('I2', { size: 10 }, { horizontal: 'center' });
+
+        // Row 3
+        worksheet.getCell('B3').value = "Coimbatore - 641 201.";
+        formatCell('B3', { size: 10 });
+        worksheet.mergeCells('B3:G3');
+        worksheet.getCell('H3').value = "Delivery note No.";
+        formatCell('H3', { bold: true, size: 9 }, { horizontal: 'center' });
+        worksheet.getCell('I3').value = "Date";
+        formatCell('I3', { bold: true, size: 9 }, { horizontal: 'center' });
+
+        // Row 4
+        worksheet.getCell('A4').value = `Phone : ${state.shop.phone}`;
+        formatCell('A4', { size: 10 });
+        worksheet.mergeCells('A4:G4');
+        worksheet.getCell('H4').value = t.deliveryNote || "-";
+        formatCell('H4', { size: 10 }, { horizontal: 'center' });
+        worksheet.getCell('I4').value = "-";
+        formatCell('I4', { size: 10 }, { horizontal: 'center' });
+
+        // Row 5
+        worksheet.getCell('A5').value = `E-mail : ${state.shop.email}`;
+        formatCell('A5', { size: 10 });
+        worksheet.mergeCells('A5:G5');
+        worksheet.getCell('H5').value = "Buyer's Order No.";
+        formatCell('H5', { bold: true, size: 9 }, { horizontal: 'center' });
+        worksheet.getCell('I5').value = "Date";
+        formatCell('I5', { bold: true, size: 9 }, { horizontal: 'center' });
+
+        // Row 6
+        worksheet.getCell('A6').value = `MSME : ${state.shop.msme}`;
+        formatCell('A6', { size: 10 });
+        worksheet.mergeCells('A6:G6');
+        worksheet.getCell('H6').value = t.orderNo || "-";
+        formatCell('H6', { size: 10 }, { horizontal: 'center' });
+        worksheet.getCell('I6').value = t.orderDate || "-";
+        formatCell('I6', { size: 10 }, { horizontal: 'center' });
+
+        // Row 7
+        worksheet.getCell('A7').value = `GSTIN : ${state.shop.gstin}`;
+        formatCell('A7', { size: 10 });
+        worksheet.mergeCells('A7:G7');
+        worksheet.getCell('H7').value = "Payment Terms";
+        formatCell('H7', { bold: true, size: 9 }, { horizontal: 'center' });
+        worksheet.getCell('I7').value = "Mode of dispatch";
+        formatCell('I7', { bold: true, size: 9 }, { horizontal: 'center' });
+
+        // Row 8
+        worksheet.getCell('H8').value = t.paymentTerms || "-";
+        formatCell('H8', { size: 10 }, { horizontal: 'center' });
+        worksheet.getCell('I8').value = t.dispatchMode || "-";
+        formatCell('I8', { size: 10 }, { horizontal: 'center' });
+
+        // Apply outline box around right side details
+        borderRange(1, 8, 8, 9, thinBorder);
+
+        // --- POPULATE BUYER & CONSIGNEE DETAILS (Rows 10 to 15) ---
+        // Row 10
+        worksheet.getCell('B10').value = "Buyer Name & Address";
+        formatCell('B10', { bold: true, size: 10, underline: true });
+        worksheet.mergeCells('B10:E10');
+        worksheet.getCell('F10').value = "Consignee Name & Address";
+        formatCell('F10', { bold: true, size: 10, underline: true });
+        worksheet.mergeCells('F10:I10');
+
+        // Row 11
+        worksheet.getCell('B11').value = t.customerName;
+        formatCell('B11', { bold: true, size: 10 });
+        worksheet.mergeCells('B11:E11');
+        worksheet.getCell('F11').value = t.customerName;
+        formatCell('F11', { bold: true, size: 10 });
+        worksheet.mergeCells('F11:I11');
+
+        // Row 12
+        worksheet.getCell('B12').value = addr1;
+        formatCell('B12', { size: 10 });
+        worksheet.mergeCells('B12:E12');
+        worksheet.getCell('F12').value = addr1;
+        formatCell('F12', { size: 10 });
+        worksheet.mergeCells('F12:I12');
+
+        // Row 13
+        worksheet.getCell('B13').value = addr2;
+        formatCell('B13', { size: 10 });
+        worksheet.mergeCells('B13:E13');
+        worksheet.getCell('F13').value = addr2;
+        formatCell('F13', { size: 10 });
+        worksheet.mergeCells('F13:I13');
+
+        // Row 14
+        worksheet.getCell('B14').value = addr3;
+        formatCell('B14', { size: 10 });
+        worksheet.mergeCells('B14:E14');
+        worksheet.getCell('F14').value = addr3;
+        formatCell('F14', { size: 10 });
+        worksheet.mergeCells('F14:I14');
+
+        // Row 15
+        worksheet.getCell('B15').value = t.customerGstin ? `GSTIN : ${t.customerGstin}` : "GSTIN : -";
+        formatCell('B15', { size: 10 });
+        worksheet.mergeCells('B15:E15');
+        worksheet.getCell('F15').value = t.customerGstin ? `GSTIN : ${t.customerGstin}` : "GSTIN : -";
+        formatCell('F15', { size: 10 });
+        worksheet.mergeCells('F15:I15');
+
+        // Draw outline boxes
+        outlineRange(10, 2, 15, 5);
+        outlineRange(10, 6, 15, 9);
+
+        // --- POPULATE ITEMS TABLE HEADERS (Row 17) ---
+        worksheet.getCell('A17').value = "S.No.";
+        worksheet.getCell('B17').value = "Description";
+        worksheet.mergeCells('B17:D17');
+        worksheet.getCell('E17').value = "HSN code";
+        worksheet.getCell('F17').value = "GST Rate";
+        worksheet.getCell('G17').value = "Qty.";
+        worksheet.getCell('H17').value = "Rate - ₹";
+        worksheet.getCell('I17').value = "Amount - ₹";
+
+        for (let c = 1; c <= 9; c++) {
+            formatCell(17, c, { bold: true, size: 10 }, { horizontal: 'center' }, thinBorder);
+        }
+
+        // --- POPULATE ITEM DATA ROWS ---
+        t.items.forEach((item, index) => {
+            const r = 18 + index;
+            const unit = getProductUnit(item.name);
+            const rate = item.gstRate !== undefined ? item.gstRate : t.gstRateOverride;
+
+            worksheet.getCell(r, 1).value = index + 1;
+            formatCell(r, 1, { size: 10 }, { horizontal: 'center' });
+
+            worksheet.getCell(r, 2).value = item.name;
+            formatCell(r, 2, { size: 10 }, { horizontal: 'left' });
+            worksheet.mergeCells(r, 2, r, 4);
+
+            worksheet.getCell(r, 5).value = item.hsn || "";
+            formatCell(r, 5, { size: 10 }, { horizontal: 'center' });
+
+            worksheet.getCell(r, 6).value = `${rate}%`;
+            formatCell(r, 6, { size: 10 }, { horizontal: 'center' });
+
+            worksheet.getCell(r, 7).value = `${item.qty} ${unit}`;
+            formatCell(r, 7, { size: 10 }, { horizontal: 'center' });
+
+            worksheet.getCell(r, 8).value = item.sellRate;
+            formatCell(r, 8, { size: 10 }, { horizontal: 'right' });
+            worksheet.getCell(r, 8).numFmt = '0.00';
+
+            worksheet.getCell(r, 9).value = item.qty * item.sellRate;
+            formatCell(r, 9, { size: 10 }, { horizontal: 'right' });
+            worksheet.getCell(r, 9).numFmt = '0.00';
+
+            // Add thin borders
+            for (let c = 1; c <= 9; c++) {
+                worksheet.getCell(r, c).border = thinBorder;
+            }
+        });
+
+        const itemsEndRow = 18 + t.items.length;
+
+        // --- TOTAL ROW ---
+        worksheet.getCell(itemsEndRow, 8).value = "Total - -";
+        formatCell(itemsEndRow, 8, { bold: true, size: 10 }, { horizontal: 'right' }, thinBorder);
+        worksheet.getCell(itemsEndRow, 9).value = t.subtotal;
+        formatCell(itemsEndRow, 9, { bold: true, size: 10 }, { horizontal: 'right' }, thinBorder);
+        worksheet.getCell(itemsEndRow, 9).numFmt = '0.00';
+
+        // --- TAX TABLE & RIGHT-SIDE SUMMARY ---
+        const rStart = itemsEndRow + 1;
+
+        // Calculate Tax Groups
+        const taxGroups = {};
+        const standardRates = [18, 5, 0];
+        standardRates.forEach(r => {
+            taxGroups[r] = { taxable: 0, cgst: 0, sgst: 0 };
+        });
+
+        t.items.forEach(item => {
+            const rate = item.gstRate !== undefined ? item.gstRate : t.gstRateOverride;
+            if (taxGroups[rate] === undefined) {
+                taxGroups[rate] = { taxable: 0, cgst: 0, sgst: 0 };
+            }
+            const taxableVal = item.qty * item.sellRate;
+            const cgstVal = taxableVal * ((rate / 2) / 100);
+            const sgstVal = taxableVal * ((rate / 2) / 100);
+            
+            taxGroups[rate].taxable += taxableVal;
+            taxGroups[rate].cgst += cgstVal;
+            taxGroups[rate].sgst += sgstVal;
+        });
+
+        const rate18 = taxGroups[18] || { taxable: 0, cgst: 0, sgst: 0 };
+        const rate5 = taxGroups[5] || { taxable: 0, cgst: 0, sgst: 0 };
+        const rate0 = taxGroups[0] || { taxable: 0, cgst: 0, sgst: 0 };
+
+        const totalCGST = rate18.cgst + rate5.cgst + rate0.cgst;
+        const totalSGST = rate18.sgst + rate5.sgst + rate0.sgst;
+        const calculatedTotal = t.subtotal + totalCGST + totalSGST;
+        const grandTotalRounded = Math.round(calculatedTotal);
+        const roundOff = grandTotalRounded - calculatedTotal;
+
+        // Left Tax headers
+        worksheet.getCell(rStart, 2).value = "Taxable Value";
+        worksheet.mergeCells(rStart, 2, rStart, 3);
+        worksheet.getCell(rStart, 4).value = "CGST";
+        worksheet.mergeCells(rStart, 4, rStart, 5);
+        worksheet.getCell(rStart, 6).value = "SGST";
+        worksheet.mergeCells(rStart, 6, rStart, 7);
+
+        // Left Tax subheaders
+        worksheet.mergeCells(rStart + 1, 2, rStart + 1, 3);
+        worksheet.getCell(rStart + 1, 4).value = "Rate";
+        worksheet.getCell(rStart + 1, 5).value = "Amount";
+        worksheet.getCell(rStart + 1, 6).value = "Rate";
+        worksheet.getCell(rStart + 1, 7).value = "Amount";
+
+        for (let rIdx = rStart; rIdx <= rStart + 1; rIdx++) {
+            for (let cIdx = 2; cIdx <= 7; cIdx++) {
+                formatCell(rIdx, cIdx, { bold: true, size: 9 }, { horizontal: 'center' }, thinBorder);
+            }
+        }
+
+        // Tax Table Data Rows
+        // 18% Row
+        worksheet.getCell(rStart + 2, 2).value = rate18.taxable;
+        worksheet.getCell(rStart + 2, 2).numFmt = '0.00';
+        worksheet.mergeCells(rStart + 2, 2, rStart + 2, 3);
+        worksheet.getCell(rStart + 2, 4).value = "9%";
+        worksheet.getCell(rStart + 2, 5).value = rate18.cgst;
+        worksheet.getCell(rStart + 2, 5).numFmt = '0.00';
+        worksheet.getCell(rStart + 2, 6).value = "9%";
+        worksheet.getCell(rStart + 2, 7).value = rate18.sgst;
+        worksheet.getCell(rStart + 2, 7).numFmt = '0.00';
+
+        // 5% Row
+        worksheet.getCell(rStart + 3, 2).value = rate5.taxable;
+        worksheet.getCell(rStart + 3, 2).numFmt = '0.00';
+        worksheet.mergeCells(rStart + 3, 2, rStart + 3, 3);
+        worksheet.getCell(rStart + 3, 4).value = "2.5%";
+        worksheet.getCell(rStart + 3, 5).value = rate5.cgst;
+        worksheet.getCell(rStart + 3, 5).numFmt = '0.00';
+        worksheet.getCell(rStart + 3, 6).value = "2.5%";
+        worksheet.getCell(rStart + 3, 7).value = rate5.sgst;
+        worksheet.getCell(rStart + 3, 7).numFmt = '0.00';
+
+        // 0% Row
+        worksheet.getCell(rStart + 4, 2).value = rate0.taxable;
+        worksheet.getCell(rStart + 4, 2).numFmt = '0.00';
+        worksheet.mergeCells(rStart + 4, 2, rStart + 4, 3);
+        worksheet.getCell(rStart + 4, 4).value = "0%";
+        worksheet.getCell(rStart + 4, 5).value = rate0.cgst;
+        worksheet.getCell(rStart + 4, 5).numFmt = '0.00';
+        worksheet.getCell(rStart + 4, 6).value = "0%";
+        worksheet.getCell(rStart + 4, 7).value = rate0.sgst;
+        worksheet.getCell(rStart + 4, 7).numFmt = '0.00';
+
+        for (let rIdx = rStart + 2; rIdx <= rStart + 4; rIdx++) {
+            formatCell(rIdx, 2, { size: 9 }, { horizontal: 'right' }, thinBorder);
+            formatCell(rIdx, 3, { size: 9 }, { horizontal: 'right' }, thinBorder);
+            formatCell(rIdx, 4, { size: 9 }, { horizontal: 'center' }, thinBorder);
+            formatCell(rIdx, 5, { size: 9 }, { horizontal: 'right' }, thinBorder);
+            formatCell(rIdx, 6, { size: 9 }, { horizontal: 'center' }, thinBorder);
+            formatCell(rIdx, 7, { size: 9 }, { horizontal: 'right' }, thinBorder);
+        }
+
+        // Right Summary Panel
+        worksheet.getCell(rStart, 8).value = "Taxable Value";
+        worksheet.getCell(rStart, 9).value = t.subtotal;
+        worksheet.getCell(rStart, 9).numFmt = '0.00';
+
+        worksheet.getCell(rStart + 1, 8).value = "C G S T";
+        worksheet.getCell(rStart + 1, 9).value = totalCGST;
+        worksheet.getCell(rStart + 1, 9).numFmt = '0.00';
+
+        worksheet.getCell(rStart + 2, 8).value = "S G S T";
+        worksheet.getCell(rStart + 2, 9).value = totalSGST;
+        worksheet.getCell(rStart + 2, 9).numFmt = '0.00';
+
+        worksheet.getCell(rStart + 3, 8).value = "Rounded off";
+        worksheet.getCell(rStart + 3, 9).value = roundOff;
+        worksheet.getCell(rStart + 3, 9).numFmt = '0.00';
+
+        worksheet.getCell(rStart + 4, 8).value = "Total Amount ₹";
+        worksheet.getCell(rStart + 4, 9).value = grandTotalRounded;
+        worksheet.getCell(rStart + 4, 9).numFmt = '0.00';
+
+        for (let rIdx = rStart; rIdx <= rStart + 3; rIdx++) {
+            formatCell(rIdx, 8, { bold: true, size: 10 }, { horizontal: 'right' }, thinBorder);
+            formatCell(rIdx, 9, { bold: true, size: 10 }, { horizontal: 'right' }, thinBorder);
+        }
+        formatCell(rStart + 4, 8, { bold: true, size: 11 }, { horizontal: 'right' }, doubleBottomBorder);
+        formatCell(rStart + 4, 9, { bold: true, size: 11 }, { horizontal: 'right' }, doubleBottomBorder);
+
+        // --- RUPEES IN WORDS (Row `rStart + 5`) ---
+        const rWords = rStart + 5;
+        worksheet.getCell(rWords, 1).value = numberToWords(grandTotalRounded);
+        formatCell(rWords, 1, { bold: true, size: 10 }, { horizontal: 'left' });
+        worksheet.mergeCells(rWords, 1, rWords, 7);
+
+        // --- BANK DETAILS & SIGNATURE FOOTER (Rows `rWords + 2` to `rWords + 4`) ---
+        const bfStart = rWords + 2;
+
+        // Row bfStart (Header titles)
+        worksheet.getCell(bfStart, 1).value = "Our Banker's details";
+        formatCell(bfStart, 1, { bold: true, size: 9, underline: true });
+        worksheet.mergeCells(bfStart, 1, bfStart, 4);
+
+        worksheet.getCell(bfStart, 5).value = "scan to pay";
+        formatCell(bfStart, 5, { bold: true, size: 8 }, { horizontal: 'center' });
+        worksheet.mergeCells(bfStart, 5, bfStart, 6);
+
+        worksheet.getCell(bfStart, 8).value = `For ${state.shop.name}`;
+        formatCell(bfStart, 8, { bold: true, size: 9 }, { horizontal: 'center' });
+        worksheet.mergeCells(bfStart, 8, bfStart, 9);
+
+        // Row bfStart + 1 (Content / Space)
+        worksheet.getCell(bfStart + 1, 1).value = `${state.shop.bankName}, ${state.shop.bankBranch}`;
+        formatCell(bfStart + 1, 1, { bold: true, size: 9 });
+        worksheet.mergeCells(bfStart + 1, 1, bfStart + 1, 4);
+        worksheet.mergeCells(bfStart + 1, 5, bfStart + 2, 6); // QR merged
+        worksheet.mergeCells(bfStart + 1, 8, bfStart + 1, 9); // Signature merged
+
+        // Row bfStart + 2 (Account No / Signatory text)
+        worksheet.getCell(bfStart + 2, 1).value = `Account No. ${state.shop.bankAcc} / IFSC : ${state.shop.bankIfsc}`;
+        formatCell(bfStart + 2, 1, { bold: true, size: 9 });
+        worksheet.mergeCells(bfStart + 2, 1, bfStart + 2, 4);
+
+        worksheet.getCell(bfStart + 2, 8).value = "Authorised Signatory";
+        formatCell(bfStart + 2, 8, { bold: true, size: 10 }, { horizontal: 'center' });
+        worksheet.mergeCells(bfStart + 2, 8, bfStart + 2, 9);
+
+        // Dashed border around banker details
+        dashedOutlineRange(bfStart, 1, bfStart + 2, 4);
+
+        // --- BOTTOM DECLARATIONS ---
+        const decStart = bfStart + 4;
+        worksheet.getCell(decStart, 1).value = "Certified that the particulars above are true and correct.   E & O.E.";
+        formatCell(decStart, 1, { italic: true, size: 9 }, { horizontal: 'center' });
+        worksheet.mergeCells(decStart, 1, decStart, 9);
+
+        worksheet.getCell(decStart + 1, 1).value = "Sales under this invoice is subject to Coimbatore Jurisdiction only.";
+        formatCell(decStart + 1, 1, { size: 9 }, { horizontal: 'center' });
+        worksheet.mergeCells(decStart + 1, 1, decStart + 1, 9);
+
+        // --- SETUP ROW HEIGHTS ---
+        worksheet.getRow(1).height = 20; // Row 1 (ExcelJS Row 1)
+        for (let i = 2; i <= 8; i++) worksheet.getRow(i).height = 16;
+        worksheet.getRow(9).height = 10;
+        worksheet.getRow(10).height = 18;
+        for (let i = 11; i <= 15; i++) worksheet.getRow(i).height = 16;
+        worksheet.getRow(16).height = 12;
+        worksheet.getRow(17).height = 25; // Headers
+        for (let i = 18; i < itemsEndRow; i++) worksheet.getRow(i).height = 22; // Items
+        worksheet.getRow(itemsEndRow).height = 20; // Total
+        for (let i = rStart; i <= rStart + 4; i++) worksheet.getRow(i).height = 18; // Taxes
+        worksheet.getRow(rWords).height = 20; // Words
+        worksheet.getRow(bfStart).height = 18; // Banker Label
+        worksheet.getRow(bfStart + 1).height = 45; // Signature gap / QR gap
+        worksheet.getRow(bfStart + 2).height = 18; // Signatory text
+
+        // Enable Grid Lines explicitly
+        worksheet.views = [{ showGridLines: true }];
+
+        // --- EMBED IMAGES ---
+        async function fetchImageBase64(path) {
+            const res = await fetch(path);
+            const blob = await res.blob();
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+        }
+
+        // Add Logo (Spans A1 to A3)
+        try {
+            const logoBase64 = await fetchImageBase64('images/logo.jpg');
+            const logoId = workbook.addImage({
+                base64: logoBase64,
+                extension: 'jpeg'
+            });
+            worksheet.addImage(logoId, {
+                tl: { col: 0, row: 0 },
+                br: { col: 1, row: 3 },
+                editAs: 'oneCell'
+            });
+        } catch (e) {
+            console.error("Failed to embed logo in Excel:", e);
+        }
+
+        // Add QR Code (Spans E[bfStart+1] to F[bfStart+2])
+        try {
+            const qrBase64 = await fetchImageBase64('images/qr.jpg');
+            const qrId = workbook.addImage({
+                base64: qrBase64,
+                extension: 'jpeg'
+            });
+            worksheet.addImage(qrId, {
+                tl: { col: 4, row: bfStart },
+                br: { col: 6, row: bfStart + 2 },
+                editAs: 'oneCell'
+            });
+        } catch (e) {
+            console.error("Failed to embed QR code in Excel:", e);
+        }
+
+        // Add Signature (Spans H[bfStart+1] to I[bfStart+1])
+        try {
+            const sigBase64 = await fetchImageBase64('images/signature.jpg');
+            const sigId = workbook.addImage({
+                base64: sigBase64,
+                extension: 'jpeg'
+            });
+            worksheet.addImage(sigId, {
+                tl: { col: 7, row: bfStart },
+                br: { col: 9, row: bfStart + 1 },
+                editAs: 'oneCell'
+            });
+        } catch (e) {
+            console.error("Failed to embed signature in Excel:", e);
+        }
+
+        // --- WRITE FILE & DOWNLOAD ---
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = `Invoice_${t.id}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
         showToast(`Invoice ${t.id} exported to Excel!`, "success");
     } catch (error) {
         console.error("Excel single export error:", error);

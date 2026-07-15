@@ -24,7 +24,8 @@ try:
 except Exception as e:
     print(f"CRITICAL ERROR: Could not connect to MongoDB: {e}")
     print("Please make sure MongoDB service is running and accessible.")
-    input("Press Enter to exit...")
+    if not os.environ.get("RENDER"):
+        input("Press Enter to exit...")
     sys.exit(1)
 
 # Session storage for authenticated clients
