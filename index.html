@@ -58,7 +58,13 @@
 
             <div class="sidebar-footer">
                 <p>&copy; 2026 Deerash Shop</p>
-                <small>v1.0.0 (Local-First)</small>
+                <div class="sidebar-footer-actions">
+                    <small>v1.0.0 (Local-First)</small>
+                    <button id="logout-btn" class="logout-btn" title="Logout Owner">
+                        <i data-lucide="log-out"></i>
+                        <span>Logout</span>
+                    </button>
+                </div>
             </div>
         </aside>
 
@@ -824,6 +830,40 @@
 
     <!-- Toast Notification Container -->
     <div class="toast-container" id="toast-container"></div>
+
+    <!-- Login Screen Overlay -->
+    <div id="login-screen" class="login-screen-overlay">
+        <div class="login-box">
+            <div class="login-header">
+                <div class="login-logo">
+                    <img src="images/logo.jpg" alt="Deeshma Logo">
+                </div>
+                <h2>Deeshma Stationery</h2>
+                <p>Suite Authentication Required</p>
+            </div>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="login-username">Username</label>
+                    <div class="input-wrapper">
+                        <i data-lucide="user"></i>
+                        <input type="text" id="login-username" placeholder="Enter owner username" required autocomplete="username">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Password</label>
+                    <div class="input-wrapper">
+                        <i data-lucide="lock"></i>
+                        <input type="password" id="login-password" placeholder="Enter password" required autocomplete="current-password">
+                    </div>
+                </div>
+                <div id="login-error-msg" class="login-error-msg hidden"></div>
+                <button type="submit" class="btn-login">
+                    <span>Sign In</span>
+                    <i data-lucide="arrow-right"></i>
+                </button>
+            </form>
+        </div>
+    </div>
 
     <!-- SheetJS Excel Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>

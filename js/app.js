@@ -23,6 +23,7 @@ let cart = [];
 let activeTab = 'dashboard';
 let selectedProductForStock = null;
 let selectedProductForPrice = null;
+let authToken = localStorage.getItem("deerash_shop_token") || "";
 
 // Initialize the Application
 document.addEventListener("DOMContentLoaded", async () => {
@@ -35,8 +36,26 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 // Load data from localStorage
 async function loadDatabase() {
+    const loginScreen = document.getElementById("login-screen");
+    if (!authToken) {
+        if (loginScreen) loginScreen.classList.remove("hidden");
+        return;
+    }
+
     try {
-        const response = await fetch('/api/state');
+        const response = await fetch('/api/state', {
+            headers: {
+                'Authorization': `Bearer ${authToken}`
+            }
+        });
+
+        if (response.status === 401) {
+            authToken = "";
+            localStorage.removeItem("deerash_shop_token");
+            if (loginScreen) loginScreen.classList.remove("hidden");
+            return;
+        }
+
         const resData = await response.json();
         
         if (resData && resData.status === 'success' && resData.state) {
@@ -74,13 +93,16 @@ async function loadDatabase() {
 
             // Migration: Sanitize and sequence all existing transactions
             sanitizeInvoiceNumbers();
+            if (loginScreen) loginScreen.classList.add("hidden");
         } else {
             console.log("No existing MongoDB state found. Initializing mock data...");
             initializeMockData();
+            if (loginScreen) loginScreen.classList.add("hidden");
         }
     } catch (e) {
         console.error("Failed to load database from MongoDB, resetting.", e);
         initializeMockData();
+        if (loginScreen) loginScreen.classList.add("hidden");
     }
 }
 
@@ -169,16 +191,26 @@ function initializeMockData() {
 
 // Save data to MongoDB backend
 function saveDatabase() {
+    if (!authToken) return;
     fetch('/api/state', {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
         },
         body: JSON.stringify({ state })
     })
-    .then(response => response.json())
+    .then(response => {
+        if (response.status === 401) {
+            authToken = "";
+            localStorage.removeItem("deerash_shop_token");
+            const loginScreen = document.getElementById("login-screen");
+            if (loginScreen) loginScreen.classList.remove("hidden");
+        }
+        return response.json();
+    })
     .then(data => {
-        if (data.status !== 'success') {
+        if (data && data.status !== 'success') {
             console.error("Failed to save database to MongoDB:", data.message);
         }
     })
@@ -189,6 +221,60 @@ function saveDatabase() {
 
 // Bind Page Interactions
 function bindEvents() {
+    // --- Authentication Events ---
+    const loginForm = document.getElementById("login-form");
+    if (loginForm) {
+        loginForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const usernameInput = document.getElementById("login-username");
+            const passwordInput = document.getElementById("login-password");
+            const errorMsg = document.getElementById("login-error-msg");
+            
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: usernameInput.value,
+                        password: passwordInput.value
+                    })
+                });
+                
+                const data = await response.json();
+                if (response.status === 200 && data.status === 'success') {
+                    authToken = data.token;
+                    localStorage.setItem("deerash_shop_token", authToken);
+                    errorMsg.classList.add("hidden");
+                    
+                    // Clear inputs
+                    usernameInput.value = "";
+                    passwordInput.value = "";
+                    
+                    // Load and render
+                    await loadDatabase();
+                    renderAll();
+                } else {
+                    errorMsg.textContent = data.message || "Invalid username or password";
+                    errorMsg.classList.remove("hidden");
+                }
+            } catch (err) {
+                console.error("Login request failed:", err);
+                errorMsg.textContent = "Unable to connect to authentication server.";
+                errorMsg.classList.remove("hidden");
+            }
+        });
+    }
+
+    const logoutBtn = document.getElementById("logout-btn");
+    if (logoutBtn) {
+        logoutBtn.addEventListener("click", (e) => {
+            e.preventDefault();
+            authToken = "";
+            localStorage.removeItem("deerash_shop_token");
+            window.location.reload();
+        });
+    }
+
     // Navigation Tab Switching
     document.querySelectorAll(".nav-item").forEach(item => {
         item.addEventListener("click", (e) => {

@@ -27,12 +27,15 @@ except Exception as e:
     input("Press Enter to exit...")
     sys.exit(1)
 
+# Session storage for authenticated clients
+session_tokens = set()
+
 class ShopRequestHandler(SimpleHTTPRequestHandler):
     def end_headers(self):
         # Enable CORS and disable caching during dev/local usage for immediate feedback
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
         self.send_header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
         super().end_headers()
 
@@ -43,6 +46,19 @@ class ShopRequestHandler(SimpleHTTPRequestHandler):
     def do_GET(self):
         parsed = urlparse(self.path)
         if parsed.path == '/api/state':
+            # Verify authorization header
+            auth_header = self.headers.get('Authorization', '')
+            token = ''
+            if auth_header.startswith('Bearer '):
+                token = auth_header[7:]
+            
+            if not token or token not in session_tokens:
+                self.send_response(401)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "error", "message": "Unauthorized"}).encode('utf-8'))
+                return
+
             try:
                 # Load collections
                 items = list(db.items.find({}, {'_id': 0}))
@@ -84,7 +100,53 @@ class ShopRequestHandler(SimpleHTTPRequestHandler):
 
     def do_POST(self):
         parsed = urlparse(self.path)
-        if parsed.path == '/api/state':
+        if parsed.path == '/api/login':
+            try:
+                content_length = int(self.headers.get('Content-Length', 0))
+                post_data = self.rfile.read(content_length)
+                data = json.loads(post_data.decode('utf-8'))
+                username = data.get('username', '')
+                password = data.get('password', '')
+                
+                owner_user = os.environ.get("OWNER_USERNAME", "admin")
+                owner_pass = os.environ.get("OWNER_PASSWORD", "admin123")
+                
+                if username == owner_user and password == owner_pass:
+                    import uuid
+                    token = uuid.uuid4().hex
+                    session_tokens.add(token)
+                    
+                    response_data = {"status": "success", "token": token}
+                    self.send_response(200)
+                    self.send_header('Content-Type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps(response_data).encode('utf-8'))
+                else:
+                    self.send_response(401)
+                    self.send_header('Content-Type', 'application/json')
+                    self.end_headers()
+                    self.wfile.write(json.dumps({"status": "error", "message": "Invalid username or password"}).encode('utf-8'))
+            except Exception as e:
+                self.send_response(500)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "error", "message": str(e)}).encode('utf-8'))
+            return
+
+        elif parsed.path == '/api/state':
+            # Verify authorization header
+            auth_header = self.headers.get('Authorization', '')
+            token = ''
+            if auth_header.startswith('Bearer '):
+                token = auth_header[7:]
+            
+            if not token or token not in session_tokens:
+                self.send_response(401)
+                self.send_header('Content-Type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"status": "error", "message": "Unauthorized"}).encode('utf-8'))
+                return
+
             try:
                 content_length = int(self.headers.get('Content-Length', 0))
                 post_data = self.rfile.read(content_length)
