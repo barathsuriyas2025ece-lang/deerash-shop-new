@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deeshma Stationery - Inventory & Billing Management</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Preload Print Images -->
+    <link rel="preload" href="images/qr.jpg" as="image">
+    <link rel="preload" href="images/signature.jpg" as="image">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="light-theme">
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon" style="background: none; box-shadow: none; width: 44px; height: 44px;">
+                    <img src="images/logo.jpg" alt="Deeshma Logo" style="width: 100%; height: 100%; border-radius: var(--border-radius-sm); object-fit: contain;">
+                </div>
+                <div class="brand-info">
+                    <h1>Deeshma</h1>
+                    <span>Stationery Suite</span>
+                </div>
+            </div>
+            
+            <nav class="nav-menu">
+                <a href="#dashboard" class="nav-item active" data-tab="dashboard">
+                    <i data-lucide="layout-dashboard"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#billing" class="nav-item" data-tab="billing">
+                    <i data-lucide="calculator"></i>
+                    <span>POS / Billing</span>
+                </a>
+                <a href="#inventory" class="nav-item" data-tab="inventory">
+                    <i data-lucide="package"></i>
+                    <span>Inventory</span>
+                </a>
+                <a href="#transactions" class="nav-item" data-tab="transactions">
+                    <i data-lucide="receipt"></i>
+                    <span>Sales History</span>
+                </a>
+                <a href="#companies" class="nav-item" data-tab="companies">
+                    <i data-lucide="building-2"></i>
+                    <span>Companies</span>
+                </a>
+                <a href="#settings" class="nav-item" data-tab="settings">
+                    <i data-lucide="settings"></i>
+                    <span>Settings</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <p>&copy; 2026 Deerash Shop</p>
+                <div class="sidebar-footer-actions">
+                    <small>v1.0.0 (Local-First)</small>
+                    <button id="logout-btn" class="logout-btn" title="Logout Owner">
+                        <i data-lucide="log-out"></i>
+                        <span>Logout</span>
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Top Header -->
+            <header class="top-header">
+                <div class="header-title">
+                    <h2 id="current-view-title">Dashboard Overview</h2>
+                    <p id="current-view-desc">Real-time statistics and summary of your store.</p>
+                </div>
+                <div class="header-actions">
+                    <div class="datetime">
+                        <i data-lucide="calendar"></i>
+                        <span id="live-date">July 14, 2026</span>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content Screens -->
+            <div class="content-body">
+                
+                <!-- 1. DASHBOARD SCREEN -->
+                <section id="dashboard-tab" class="tab-content active-tab">
+                    <!-- Stats Grid -->
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon icon-indigo">
+                                <i data-lucide="package-search"></i>
+                            </div>
+                            <div class="stat-info">
+                                <span class="stat-label">Unique Products</span>
+                                <h3 id="stat-total-products">0</h3>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon icon-emerald">
+                                <i data-lucide="coins"></i>
+                            </div>
+                            <div class="stat-info">
+                                <span class="stat-label">Stock Value (Buy Rate)</span>
+                                <h3 id="stat-stock-value">₹0.00</h3>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon icon-amber">
+                                <i data-lucide="trending-up"></i>
+                            </div>
+                            <div class="stat-info">
+                                <span class="stat-label">Potential Profit</span>
+                                <h3 id="stat-potential-profit">₹0.00</h3>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon icon-blue">
+                                <i data-lucide="shopping-cart"></i>
+                            </div>
+                            <div class="stat-info">
+                                <span class="stat-label">Today's Sales</span>
+                                <h3 id="stat-todays-sales">₹0.00</h3>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Bottom Dashboard Layout -->
+                    <div class="dashboard-details">
+                        <!-- Low Stock Panel -->
+                        <div class="panel low-stock-panel">
+                            <div class="panel-header">
+                                <h3>Low Stock Alerts</h3>
+                                <i data-lucide="alert-triangle" class="text-amber"></i>
+                            </div>
+                            <div class="panel-body">
+                                <ul id="low-stock-list" class="low-stock-list">
+                                    <li class="empty-state">No low stock alerts</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <!-- Recent Sales Summary -->
+                        <div class="panel recent-sales-panel">
+                            <div class="panel-header">
+                                <h3>Recent Transactions</h3>
+                                <a href="#transactions" class="text-link" onclick="switchTab('transactions')">View All</a>
+                            </div>
+                            <div class="panel-body">
+                                <div class="table-container">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Bill No</th>
+                                                <th>Date</th>
+                                                <th>Items</th>
+                                                <th>Total</th>
+                                                <th>GST Paid</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="recent-sales-tbody">
+                                            <tr class="empty-row">
+                                                <td colspan="5">No recent sales records.</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 2. POS / BILLING SCREEN -->
+                <section id="billing-tab" class="tab-content">
+                    <div class="pos-layout">
+                        <!-- POS Left Panel: Item Selection & Cart -->
+                        <div class="pos-left">
+                            <div class="panel pos-search-panel">
+                                <div class="search-box">
+                                    <i data-lucide="search"></i>
+                                    <input type="text" id="pos-search-input" placeholder="Search product by Name or HSN Code..." autocomplete="off">
+                                    <button class="clear-btn" id="pos-search-clear"><i data-lucide="x"></i></button>
+                                </div>
+                                <div class="autocomplete-dropdown" id="pos-search-results">
+                                    <!-- Dynamic Search Results -->
+                                </div>
+                            </div>
+
+                            <!-- Cart Panel -->
+                            <div class="panel cart-panel">
+                                <div class="panel-header">
+                                    <h3>Billing Cart</h3>
+                                    <button class="btn btn-danger-outline btn-sm" id="clear-cart-btn">
+                                        <i data-lucide="trash-2"></i> Clear Cart
+                                    </button>
+                                </div>
+                                <div class="table-container cart-table-container">
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>Item Details</th>
+                                                <th class="text-right">Price</th>
+                                                <th class="text-center">Quantity</th>
+                                                <th class="text-right">Taxable</th>
+                                                <th class="text-right">GST %</th>
+                                                <th class="text-right">Total</th>
+                                                <th class="text-center">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="cart-tbody">
+                                            <tr class="empty-row">
+                                                <td colspan="7">
+                                                    <div class="empty-cart-state">
+                                                        <i data-lucide="shopping-cart" class="huge-icon"></i>
+                                                        <p>Cart is empty. Search and select items above to start billing.</p>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- POS Right Panel: Summary & Checkout -->
+                        <div class="pos-right">
+                            <div class="panel summary-panel">
+                                <h3>Company Details</h3>
+                                <hr class="panel-divider">
+                                
+                                <div class="summary-field">
+                                    <label for="bill-company-select">Select Company</label>
+                                    <select id="bill-company-select" style="width: 100%; padding: 10px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: var(--border-radius-md); font-size: 14px; outline: none; margin-top: 5px; cursor: pointer;">
+                                        <!-- Dynamic Companies will go here -->
+                                    </select>
+                                </div>
+
+                                <div class="company-detail-preview" style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); padding: 12px; border-radius: var(--border-radius-md); margin-top: 15px; display: flex; flex-direction: column; gap: 8px;">
+                                    <div>
+                                        <small class="text-muted" style="display: block; font-size: 10px; text-transform: uppercase; margin-bottom: 2px;">Company Name</small>
+                                        <strong id="bill-company-name-display" style="font-size: 14px; color: var(--text-primary);">No Company Selected</strong>
+                                    </div>
+                                    <div>
+                                        <small class="text-muted" style="display: block; font-size: 10px; text-transform: uppercase; margin-bottom: 2px;">GSTIN / GST Number</small>
+                                        <span id="bill-company-gst-display" style="font-family: monospace; font-size: 13px; color: var(--accent-indigo);">N/A</span>
+                                    </div>
+                                    <div>
+                                        <small class="text-muted" style="display: block; font-size: 10px; text-transform: uppercase; margin-bottom: 2px;">Billing Address</small>
+                                        <span id="bill-company-address-display" style="font-size: 12px; line-height: 1.4; color: var(--text-secondary);">N/A</span>
+                                    </div>
+                                </div>
+
+                                <details class="additional-invoice-details" style="margin-top: 15px;">
+                                    <summary style="cursor: pointer; color: var(--text-secondary); font-size: 13px; font-weight: 500;">Additional Fields</summary>
+                                    <div style="padding-top: 10px; display: flex; flex-direction: column; gap: 10px;">
+                                        <div class="summary-field" style="margin-bottom: 0;">
+                                            <label for="bill-order-no">Buyer's Order No</label>
+                                            <input type="text" id="bill-order-no" value="verbal order">
+                                        </div>
+                                        <div class="summary-field" style="margin-bottom: 0;">
+                                            <label for="bill-order-date">Order Date</label>
+                                            <input type="text" id="bill-order-date" placeholder="e.g., 29.03.2026">
+                                        </div>
+                                        <div class="summary-field" style="margin-bottom: 0;">
+                                            <label for="bill-delivery-note">Delivery Note No</label>
+                                            <input type="text" id="bill-delivery-note" placeholder="e.g. 268">
+                                        </div>
+                                        <div class="summary-field" style="margin-bottom: 0;">
+                                            <label for="bill-payment-terms">Payment Terms</label>
+                                            <input type="text" id="bill-payment-terms" value="against delivery">
+                                        </div>
+                                        <div class="summary-field" style="margin-bottom: 0;">
+                                            <label for="bill-dispatch-mode">Mode of Dispatch</label>
+                                            <input type="text" id="bill-dispatch-mode" value="collected by you">
+                                        </div>
+                                    </div>
+                                </details>
+                                
+                                <hr class="panel-divider">
+                                
+                                <div class="bill-row">
+                                    <span>Subtotal (Taxable)</span>
+                                    <span id="bill-subtotal">₹0.00</span>
+                                </div>
+                                
+                                <div class="bill-row align-center">
+                                    <span>Override GST Rate (%)</span>
+                                    <div class="gst-override-input">
+                                        <input type="number" id="bill-gst-percentage" value="18" min="0" max="100" step="1">
+                                        <span>%</span>
+                                    </div>
+                                </div>
+
+                                <div class="bill-row">
+                                    <span>GST Tax Amount</span>
+                                    <span id="bill-gst-amount">₹0.00</span>
+                                </div>
+                                
+                                <hr class="panel-divider">
+                                
+                                <div class="bill-row grand-total-row">
+                                    <span>Grand Total</span>
+                                    <span id="bill-grand-total">₹0.00</span>
+                                </div>
+                                
+                                <button class="btn btn-primary btn-block btn-lg" id="checkout-btn">
+                                    <i data-lucide="printer"></i> Checkout & Print Bill
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 3. INVENTORY SCREEN -->
+                <section id="inventory-tab" class="tab-content">
+                    <div class="inventory-controls">
+                        <div class="search-filter-row">
+                            <div class="search-box">
+                                <i data-lucide="search"></i>
+                                <input type="text" id="inventory-search-input" placeholder="Search by name or HSN code...">
+                            </div>
+                            <div class="filter-dropdown">
+                                <select id="inventory-stock-filter">
+                                    <option value="all">All Items</option>
+                                    <option value="low">Low Stock</option>
+                                    <option value="out">Out of Stock</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" id="open-add-modal-btn">
+                            <i data-lucide="plus-circle"></i> Add New Product
+                        </button>
+                    </div>
+
+                    <div class="panel inventory-panel">
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Product Name</th>
+                                        <th>HSN Code</th>
+                                        <th class="text-right">Qty</th>
+                                        <th class="text-right">Buying Rate</th>
+                                        <th class="text-right">Selling Rate</th>
+                                        <th class="text-right">Profit Per Item</th>
+                                        <th class="text-right">Default GST %</th>
+                                        <th class="text-center">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="inventory-tbody">
+                                    <tr class="empty-row">
+                                        <td colspan="8">No inventory items found. Click "Add New Product" to populate your inventory.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 4. TRANSACTIONS SCREEN -->
+                <section id="transactions-tab" class="tab-content">
+                    <div class="inventory-controls">
+                        <div class="search-filter-row">
+                            <div class="search-box">
+                                <i data-lucide="search"></i>
+                                <input type="text" id="transaction-search-input" placeholder="Search bills by number or customer name...">
+                            </div>
+                        </div>
+                        <div class="action-buttons">
+                            <button class="btn btn-emerald" onclick="exportTransactionsToExcel()">
+                                <i data-lucide="file-spreadsheet"></i> Convert as Excel
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="panel transactions-panel">
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Invoice No</th>
+                                        <th>Date & Time</th>
+                                        <th>Customer</th>
+                                        <th class="text-right">Subtotal</th>
+                                        <th class="text-right">GST Rate</th>
+                                        <th class="text-right">GST Amount</th>
+                                        <th class="text-right">Grand Total</th>
+                                        <th class="text-center">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="transactions-tbody">
+                                    <tr class="empty-row">
+                                        <td colspan="8">No sales transactions available.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+ 
+                <!-- COMPANIES SCREEN -->
+                <section id="companies-tab" class="tab-content">
+                    <div class="inventory-controls">
+                        <div class="search-filter-row">
+                            <div class="search-box">
+                                <i data-lucide="search"></i>
+                                <input type="text" id="company-search-input" placeholder="Search companies by name or GSTIN...">
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" id="open-add-company-btn">
+                            <i data-lucide="plus-circle"></i> Add New Company
+                        </button>
+                    </div>
+
+                    <div class="panel inventory-panel">
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Company Name</th>
+                                        <th>Billing Address</th>
+                                        <th>GST Number</th>
+                                        <th class="text-center" style="width: 150px;">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="companies-tbody">
+                                    <tr class="empty-row">
+                                        <td colspan="4">No companies found. Click "Add New Company" to register.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 5. SETTINGS SCREEN -->
+                <section id="settings-tab" class="tab-content">
+                    <div class="settings-grid">
+                        <!-- Shop Configuration -->
+                        <div class="panel">
+                            <div class="panel-header">
+                                <h3>Shop Details (for Invoices)</h3>
+                                <i data-lucide="store" class="text-indigo"></i>
+                            </div>
+                            <div class="panel-body">
+                                <form id="shop-details-form">
+                                    <div class="form-group">
+                                        <label for="shop-name">Shop Name</label>
+                                        <input type="text" id="shop-name" value="DEESHMA STATIONERY" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="shop-address">Address</label>
+                                        <textarea id="shop-address" rows="3" required>2/179, East Street, Kallapalayam, Coimbatore - 641 201.</textarea>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="shop-phone">Contact Phone</label>
+                                        <input type="text" id="shop-phone" value="0422-225 2159, Mobile: 936393 2159" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="shop-email">Email Address</label>
+                                        <input type="email" id="shop-email" value="deeshmastationery@gmail.com" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="shop-msme">MSME / Udyam Number</label>
+                                        <input type="text" id="shop-msme" value="UDYAM-TN-03-0205844">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="shop-gstin">Shop GSTIN</label>
+                                        <input type="text" id="shop-gstin" value="33ALDPV4275A1ZA">
+                                    </div>
+                                    
+                                    <h4 style="margin: 20px 0 10px 0; font-family: 'Outfit', sans-serif; font-size: 13px; text-transform: uppercase; color: var(--accent-indigo);">Banker's Details (for Invoices)</h4>
+                                    <div class="form-group">
+                                        <label for="shop-bank-name">Bank Name</label>
+                                        <input type="text" id="shop-bank-name" value="STATE BANK OF INDIA">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="shop-bank-branch">Branch</label>
+                                        <input type="text" id="shop-bank-branch" value="Chettipalayam Branch">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="shop-bank-acc">Account Number</label>
+                                        <input type="text" id="shop-bank-acc" value="42936723322">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="shop-bank-ifsc">IFSC Code</label>
+                                        <input type="text" id="shop-bank-ifsc" value="SBIN0002208">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="shop-upi">UPI ID (for QR Scan payments)</label>
+                                        <input type="text" id="shop-upi" value="deeshmastationery@okaxis">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="setting-low-stock-alert">Low Stock Alert Threshold</label>
+                                        <input type="number" id="setting-low-stock-alert" value="5" min="1">
+                                    </div>
+                                    <button type="submit" class="btn btn-primary">Save Shop Configuration</button>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- Data Management & Backups -->
+                        <div class="panel">
+                            <div class="panel-header">
+                                <h3>Data Management</h3>
+                                <i data-lucide="database" class="text-indigo"></i>
+                            </div>
+                            <div class="panel-body">
+                                <p class="text-muted">Export your data to local storage backups. Restoring data will overwrite your current inventory and history records.</p>
+                                
+                                <div class="backup-actions">
+                                    <button class="btn btn-indigo btn-block" id="backup-export-btn">
+                                        <i data-lucide="download"></i> Export Database (Backup JSON)
+                                    </button>
+                                    
+                                    <div class="import-wrapper">
+                                        <label for="backup-import-file" class="btn btn-outline btn-block">
+                                            <i data-lucide="upload"></i> Import Database (Restore JSON)
+                                        </label>
+                                        <input type="file" id="backup-import-file" accept=".json" style="display: none;">
+                                    </div>
+
+                                    <hr class="panel-divider">
+
+                                    <button class="btn btn-danger-outline btn-block" id="clear-database-btn">
+                                        <i data-lucide="shield-alert"></i> Clear All Data (Reset App)
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                
+            </div>
+        </main>
+    </div>
+
+    <!-- MODAL 1: ADD / EDIT PRODUCT -->
+    <div class="modal-backdrop" id="product-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="product-modal-title">Add New Product</h3>
+                <button class="close-modal-btn" id="close-product-modal"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="product-form">
+                    <input type="hidden" id="product-id">
+                    
+                    <div class="form-row">
+                        <div class="form-group flex-2">
+                            <label for="product-form-name">Product Name *</label>
+                            <input type="text" id="product-form-name" placeholder="e.g., Wireless Mouse" required>
+                        </div>
+                        <div class="form-group flex-1">
+                            <label for="product-form-hsn">HSN Code *</label>
+                            <input type="text" id="product-form-hsn" placeholder="e.g., 84716060" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="product-form-qty">Initial Quantity *</label>
+                            <input type="number" id="product-form-qty" placeholder="0" min="0" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="product-form-gst">Default GST % *</label>
+                            <select id="product-form-gst" required>
+                                <option value="0">0% (Nil)</option>
+                                <option value="5">5%</option>
+                                <option value="12">12%</option>
+                                <option value="18" selected>18%</option>
+                                <option value="28">28%</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="product-form-buy">Buying Price (₹) *</label>
+                            <input type="number" id="product-form-buy" placeholder="0.00" min="0" step="0.01" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="product-form-sell">Selling Price (₹) *</label>
+                            <input type="number" id="product-form-sell" placeholder="0.00" min="0" step="0.01" required>
+                        </div>
+                    </div>
+
+                    <div class="live-pricing-preview">
+                        <div class="preview-item">
+                            <span>Profit Margin:</span>
+                            <strong id="pricing-margin-preview">₹0.00 (0.00%)</strong>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline" id="cancel-product-modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary" id="save-product-btn">Save Product</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 2: UPDATE STOCK QUANTITY (FAST ACTION) -->
+    <div class="modal-backdrop" id="stock-modal">
+        <div class="modal modal-sm">
+            <div class="modal-header">
+                <h3>Update Stock Level</h3>
+                <button class="close-modal-btn" id="close-stock-modal"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="stock-item-info">
+                    <h4 id="stock-modal-item-name">Wireless Mouse</h4>
+                    <p>Current stock: <strong id="stock-modal-item-qty">12</strong> units</p>
+                </div>
+                <form id="stock-form">
+                    <input type="hidden" id="stock-item-id">
+                    
+                    <div class="stock-action-selector">
+                        <label class="action-chip active-chip">
+                            <input type="radio" name="stock-action" value="add" checked>
+                            <span>Add Stock (+)</span>
+                        </label>
+                        <label class="action-chip">
+                            <input type="radio" name="stock-action" value="reduce">
+                            <span>Reduce Stock (-)</span>
+                        </label>
+                        <label class="action-chip">
+                            <input type="radio" name="stock-action" value="set">
+                            <span>Set Stock (=)</span>
+                        </label>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="stock-qty-input">Quantity units</label>
+                        <input type="number" id="stock-qty-input" min="1" value="5" required>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline" id="cancel-stock-modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Update Stock</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 3: UPDATE PRICE (FAST ACTION) -->
+    <div class="modal-backdrop" id="price-modal">
+        <div class="modal modal-sm">
+            <div class="modal-header">
+                <h3>Update Item Prices</h3>
+                <button class="close-modal-btn" id="close-price-modal"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="stock-item-info">
+                    <h4 id="price-modal-item-name">Wireless Mouse</h4>
+                </div>
+                <form id="price-form">
+                    <input type="hidden" id="price-item-id">
+                    
+                    <div class="form-group">
+                        <label for="price-buy-input">Buying Price (₹)</label>
+                        <input type="number" id="price-buy-input" min="0" step="0.01" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="price-sell-input">Selling Price (₹)</label>
+                        <input type="number" id="price-sell-input" min="0" step="0.01" required>
+                    </div>
+
+                    <div class="live-pricing-preview">
+                        <div class="preview-item">
+                            <span>New Margin:</span>
+                            <strong id="price-margin-preview">₹0.00 (0.00%)</strong>
+                        </div>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline" id="cancel-price-modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Update Prices</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 4: ADD / EDIT COMPANY -->
+    <div class="modal-backdrop" id="company-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="company-modal-title">Add New Company</h3>
+                <button class="close-modal-btn" id="close-company-modal"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="company-form">
+                    <input type="hidden" id="company-id">
+                    
+                    <div class="form-group">
+                        <label for="company-form-name">Company Name *</label>
+                        <input type="text" id="company-form-name" placeholder="e.g. M/s. Vidhya Technologies" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="company-form-gst">GST Number / GSTIN</label>
+                        <input type="text" id="company-form-gst" placeholder="e.g. 33 AGVPM2823N 1ZV">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="company-form-address">Billing Address *</label>
+                        <textarea id="company-form-address" rows="4" placeholder="Full billing address..." required></textarea>
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-outline" id="cancel-company-modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary" id="save-company-btn">Save Company</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 5: COMPANY TRANSACTION HISTORY -->
+    <div class="modal-backdrop" id="company-history-modal">
+        <div class="modal modal-lg">
+            <div class="modal-header">
+                <h3 id="company-history-modal-title">Company Transaction History</h3>
+                <button class="close-modal-btn" id="close-company-history-modal"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="company-history-overview">
+                    <div class="history-meta">
+                        <h4 id="history-company-name">Company Name</h4>
+                        <p id="history-company-gst">GSTIN: -</p>
+                        <p id="history-company-address">Address: -</p>
+                    </div>
+                    <div class="history-stats">
+                        <div class="history-stat-card">
+                            <span class="stat-label">Total Invoices</span>
+                            <strong id="history-stat-orders">0</strong>
+                        </div>
+                        <div class="history-stat-card">
+                            <span class="stat-label">Total Spent</span>
+                            <strong id="history-stat-value">₹0.00</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-header" style="margin-top: 20px; margin-bottom: 12px; padding: 0; border: none;">
+                    <h4 style="font-family: 'Outfit', sans-serif; font-size: 14px; font-weight: 600; text-transform: uppercase; color: var(--accent-indigo);">Purchase Records</h4>
+                </div>
+                <div class="table-container" style="max-height: 250px; overflow-y: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Invoice No</th>
+                                <th>Date & Time</th>
+                                <th class="text-right">Subtotal</th>
+                                <th class="text-right">GST Rate</th>
+                                <th class="text-right">GST Amount</th>
+                                <th class="text-right">Grand Total</th>
+                                <th class="text-center" style="width: 100px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="company-history-tbody">
+                            <tr class="empty-row">
+                                <td colspan="7">No transactions found for this company.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 6: POS BILLING INPUT MODAL -->
+    <div class="modal-backdrop" id="pos-billing-input-modal">
+        <div class="modal modal-sm">
+            <div class="modal-header">
+                <h3>Custom Billing Price</h3>
+                <button class="close-modal-btn" id="close-pos-billing-modal"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="stock-item-info" style="margin-bottom: 20px;">
+                    <h4 id="pos-billing-modal-item-name" style="font-family: 'Outfit', sans-serif; font-size: 16px; font-weight: 600; color: var(--text-primary);">Product Name</h4>
+                    <p style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">HSN: <span id="pos-billing-modal-hsn">N/A</span> | Available Stock: <strong id="pos-billing-modal-stock">0</strong></p>
+                </div>
+                
+                <div style="background: rgba(15, 23, 42, 0.02); border: 1px solid var(--border-color); border-radius: var(--border-radius-md); padding: 12px; margin-bottom: 20px; display: flex; flex-direction: column; gap: 8px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 13px;">
+                        <span style="color: var(--text-secondary);">Store Buying Price:</span>
+                        <strong id="pos-billing-modal-buy-price" style="color: var(--text-primary);">₹0.00</strong>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 13px;">
+                        <span style="color: var(--text-secondary);">Last Price to this Company:</span>
+                        <strong id="pos-billing-modal-recent-sell" style="color: var(--accent-indigo);">₹0.00 (First time)</strong>
+                    </div>
+                </div>
+
+                <form id="pos-billing-input-form">
+                    <input type="hidden" id="pos-billing-modal-product-id">
+                    
+                    <div class="form-group">
+                        <label for="pos-billing-modal-price-input">Custom Selling Price (₹) *</label>
+                        <input type="number" id="pos-billing-modal-price-input" min="0" step="0.01" placeholder="0.00" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="pos-billing-modal-qty-input">Quantity *</label>
+                        <input type="number" id="pos-billing-modal-qty-input" min="1" value="1" required>
+                    </div>
+
+                    <div class="modal-footer" style="margin-top: 20px;">
+                        <button type="button" class="btn btn-outline" id="cancel-pos-billing-modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Add to Bill</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- PRINT OUTLET (HIDDEN IN SCREEN, SHOWN IN PRINT) -->
+    <div id="print-section" class="print-only">
+        <!-- Dynamically structured GST invoice will be populated here during checkout printing -->
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <!-- Login Screen Overlay -->
+    <div id="login-screen" class="login-screen-overlay">
+        <div class="login-box">
+            <div class="login-header">
+                <div class="login-logo">
+                    <img src="images/logo.jpg" alt="Deeshma Logo">
+                </div>
+                <h2>Deeshma Stationery</h2>
+                <p>Suite Authentication Required</p>
+            </div>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="login-username">Username</label>
+                    <div class="input-wrapper">
+                        <i data-lucide="user"></i>
+                        <input type="text" id="login-username" placeholder="Enter owner username" required autocomplete="username">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Password</label>
+                    <div class="input-wrapper">
+                        <i data-lucide="lock"></i>
+                        <input type="password" id="login-password" placeholder="Enter password" required autocomplete="current-password">
+                    </div>
+                </div>
+                <div id="login-error-msg" class="login-error-msg hidden"></div>
+                <button type="submit" class="btn-login">
+                    <span>Sign In</span>
+                    <i data-lucide="arrow-right"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ExcelJS Library for Image Embedding & Styling -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
