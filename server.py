@@ -28,8 +28,19 @@ except Exception as e:
         input("Press Enter to exit...")
     sys.exit(1)
 
-# Session storage for authenticated clients
-session_tokens = set()
+# Session storage for authenticated clients (delegated to MongoDB)
+def register_session(token):
+    try:
+        db.sessions.insert_one({"token": token})
+    except Exception as e:
+        print(f"Error registering session: {e}")
+
+def is_valid_session(token):
+    try:
+        return db.sessions.find_one({"token": token}) is not None
+    except Exception as e:
+        print(f"Error validating session: {e}")
+        return False
 
 class ShopRequestHandler(SimpleHTTPRequestHandler):
     def end_headers(self):
@@ -53,7 +64,7 @@ class ShopRequestHandler(SimpleHTTPRequestHandler):
             if auth_header.startswith('Bearer '):
                 token = auth_header[7:]
             
-            if not token or token not in session_tokens:
+            if not token or not is_valid_session(token):
                 self.send_response(401)
                 self.send_header('Content-Type', 'application/json')
                 self.end_headers()
@@ -115,7 +126,7 @@ class ShopRequestHandler(SimpleHTTPRequestHandler):
                 if username == owner_user and password == owner_pass:
                     import uuid
                     token = uuid.uuid4().hex
-                    session_tokens.add(token)
+                    register_session(token)
                     
                     response_data = {"status": "success", "token": token}
                     self.send_response(200)
@@ -141,7 +152,7 @@ class ShopRequestHandler(SimpleHTTPRequestHandler):
             if auth_header.startswith('Bearer '):
                 token = auth_header[7:]
             
-            if not token or token not in session_tokens:
+            if not token or not is_valid_session(token):
                 self.send_response(401)
                 self.send_header('Content-Type', 'application/json')
                 self.end_headers()
